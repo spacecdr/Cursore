@@ -24,7 +24,7 @@ static i2s_chan_handle_t s_rx_handle = NULL;
 
 /* 512 samples @ 16 kHz = 32 ms per frame */
 #define VAD_ATTACK_FRAMES       2
-#define VAD_RELEASE_FRAMES      25      /* ~800 ms */
+#define VAD_RELEASE_FRAMES      45      /* ~1440 ms */
 #define VAD_CALIBRATION_FRAMES  50
 #define AUDIO_PREROLL_FRAMES     10      /* ~320 ms */
 
