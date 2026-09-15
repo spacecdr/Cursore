@@ -1,0 +1,17 @@
+services:
+  cursore-server:
+    build:
+      context: ./server
+    container_name: cursore-server
+    environment:
+      CURSORE_HOST: 0.0.0.0
+      CURSORE_PORT: 8766
+    ports:
+      - "127.0.0.1:8766:8766"
+      - "192.168.123.5:8766:8766"
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
