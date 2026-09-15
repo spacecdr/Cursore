@@ -9,12 +9,20 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "lwip/sockets.h"
+#include "lwip/netdb.h"
+#include "lwip/inet.h"
+#include <errno.h>
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "server";
+
+static int s_audio_socket = -1;
+static uint32_t s_request_counter = 0;
+static char s_audio_response[2048];
 
 typedef struct {
     char body[256];
@@ -130,18 +138,19 @@ static void health_task(void *arg)
                 ok ? "HTTP 200 JSON ok" : "error"
             );
 
-            if (led_state_get() != CURSORE_STATE_MUTED) {
+            /*
+             * Health checks must never overwrite LISTENING,
+             * PROCESSING or SPEAKING states.
+             */
+            cursore_state_t state = led_state_get();
 
-                led_state_set(
-                    ok ? CURSORE_STATE_READY : CURSORE_STATE_ERROR
-                );
+            if (!ok && state == CURSORE_STATE_READY) {
+                led_state_set(CURSORE_STATE_ERROR);
 
-                if (!ok) {
-                    vTaskDelay(pdMS_TO_TICKS(1000));
+                vTaskDelay(pdMS_TO_TICKS(1000));
 
-                    if (led_state_get() == CURSORE_STATE_ERROR) {
-                        led_state_set(CURSORE_STATE_READY);
-                    }
+                if (led_state_get() == CURSORE_STATE_ERROR) {
+                    led_state_set(CURSORE_STATE_READY);
                 }
             }
         }
@@ -160,4 +169,311 @@ void server_health_task_start(void)
         4,
         NULL
     );
+}
+
+
+static bool socket_send_all(int sock, const void *data, size_t len)
+{
+    const uint8_t *p = (const uint8_t *)data;
+    size_t sent_total = 0;
+
+    while (sent_total < len) {
+        int sent = send(
+            sock,
+            p + sent_total,
+            len - sent_total,
+            0
+        );
+
+        if (sent <= 0) {
+            ESP_LOGE(
+                TAG,
+                "socket send failed: errno=%d",
+                errno
+            );
+            return false;
+        }
+
+        sent_total += (size_t)sent;
+    }
+
+    return true;
+}
+
+void server_audio_abort(void)
+{
+    if (s_audio_socket >= 0) {
+        shutdown(s_audio_socket, SHUT_RDWR);
+        close(s_audio_socket);
+        s_audio_socket = -1;
+    }
+
+    ESP_LOGW(TAG, "audio POST aborted");
+}
+
+bool server_audio_begin(void)
+{
+    if (s_audio_socket >= 0) {
+        ESP_LOGW(TAG, "audio request already active");
+        return false;
+    }
+
+    if (!wifi_is_connected()) {
+        ESP_LOGW(
+            TAG,
+            "cannot start audio request: Wi-Fi offline"
+        );
+        return false;
+    }
+
+    char port[8];
+
+    snprintf(
+        port,
+        sizeof(port),
+        "%d",
+        CURSORE_SERVER_PORT
+    );
+
+    struct addrinfo hints = {
+        .ai_family = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+
+    struct addrinfo *res = NULL;
+
+    int err = getaddrinfo(
+        CURSORE_SERVER_HOST,
+        port,
+        &hints,
+        &res
+    );
+
+    if (err != 0 || res == NULL) {
+        ESP_LOGE(
+            TAG,
+            "getaddrinfo failed: %d",
+            err
+        );
+        return false;
+    }
+
+    int sock = socket(
+        res->ai_family,
+        res->ai_socktype,
+        res->ai_protocol
+    );
+
+    if (sock < 0) {
+        ESP_LOGE(
+            TAG,
+            "socket creation failed: errno=%d",
+            errno
+        );
+        freeaddrinfo(res);
+        return false;
+    }
+
+    if (connect(
+            sock,
+            res->ai_addr,
+            res->ai_addrlen) != 0) {
+
+        ESP_LOGE(
+            TAG,
+            "socket connect failed: errno=%d",
+            errno
+        );
+
+        close(sock);
+        freeaddrinfo(res);
+        return false;
+    }
+
+    freeaddrinfo(res);
+
+    s_audio_socket = sock;
+
+    char request_id[48];
+
+    snprintf(
+        request_id,
+        sizeof(request_id),
+        "%08lx-%08lx",
+        (unsigned long)xTaskGetTickCount(),
+        (unsigned long)++s_request_counter
+    );
+
+    char headers[768];
+
+    int header_len = snprintf(
+        headers,
+        sizeof(headers),
+        "POST /api/v1/requests HTTP/1.1\r\n"
+        "Host: %s:%d\r\n"
+        "Connection: close\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Content-Type: application/octet-stream\r\n"
+        "X-Request-Id: %s\r\n"
+        "X-Device-Id: atom-echo\r\n"
+        "X-Audio-Sample-Rate: 16000\r\n"
+        "X-Audio-Channels: 1\r\n"
+        "X-Audio-Encoding: pcm_s16le\r\n"
+        "\r\n",
+        CURSORE_SERVER_HOST,
+        CURSORE_SERVER_PORT,
+        request_id
+    );
+
+    if (header_len <= 0 ||
+        header_len >= (int)sizeof(headers) ||
+        !socket_send_all(
+            s_audio_socket,
+            headers,
+            (size_t)header_len)) {
+
+        ESP_LOGE(TAG, "failed sending HTTP headers");
+        server_audio_abort();
+        return false;
+    }
+
+    ESP_LOGI(
+        TAG,
+        "audio POST opened request_id=%s",
+        request_id
+    );
+
+    return true;
+}
+
+bool server_audio_write(
+    const int16_t *samples,
+    size_t sample_count
+)
+{
+    if (s_audio_socket < 0 ||
+        samples == NULL ||
+        sample_count == 0) {
+        return false;
+    }
+
+    size_t bytes =
+        sample_count * sizeof(int16_t);
+
+    char chunk_header[16];
+
+    int header_len = snprintf(
+        chunk_header,
+        sizeof(chunk_header),
+        "%x\r\n",
+        (unsigned)bytes
+    );
+
+    if (header_len <= 0 ||
+        header_len >= (int)sizeof(chunk_header)) {
+        return false;
+    }
+
+    if (!socket_send_all(
+            s_audio_socket,
+            chunk_header,
+            (size_t)header_len) ||
+        !socket_send_all(
+            s_audio_socket,
+            samples,
+            bytes) ||
+        !socket_send_all(
+            s_audio_socket,
+            "\r\n",
+            2)) {
+
+        ESP_LOGE(TAG, "failed sending audio chunk");
+        server_audio_abort();
+        return false;
+    }
+
+    return true;
+}
+
+bool server_audio_end(void)
+{
+    if (s_audio_socket < 0) {
+        return false;
+    }
+
+    if (!socket_send_all(
+            s_audio_socket,
+            "0\r\n\r\n",
+            5)) {
+
+        ESP_LOGE(
+            TAG,
+            "failed terminating audio stream"
+        );
+
+        server_audio_abort();
+        return false;
+    }
+
+    size_t total = 0;
+
+    while (total < sizeof(s_audio_response) - 1) {
+        int received = recv(
+            s_audio_socket,
+            s_audio_response + total,
+            sizeof(s_audio_response) - 1 - total,
+            0
+        );
+
+        if (received < 0) {
+            ESP_LOGE(
+                TAG,
+                "response recv failed: errno=%d",
+                errno
+            );
+
+            server_audio_abort();
+            return false;
+        }
+
+        if (received == 0) {
+            break;
+        }
+
+        total += (size_t)received;
+    }
+
+    s_audio_response[total] = '\0';
+
+    bool http_ok =
+        total >= 12 &&
+        (
+            strncmp(
+                s_audio_response,
+                "HTTP/1.1 200",
+                12
+            ) == 0 ||
+            strncmp(
+                s_audio_response,
+                "HTTP/1.0 200",
+                12
+            ) == 0
+        );
+
+    ESP_LOGI(
+        TAG,
+        "audio POST response: %s bytes=%u",
+        http_ok ? "HTTP 200" : "HTTP error",
+        (unsigned)total
+    );
+
+    if (total > 0) {
+        ESP_LOGI(TAG, "%s", s_audio_response);
+    }
+
+    shutdown(s_audio_socket, SHUT_RDWR);
+    close(s_audio_socket);
+    s_audio_socket = -1;
+
+    return http_ok;
 }

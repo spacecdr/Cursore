@@ -1,6 +1,7 @@
 #include "microphone.h"
 #include "config.h"
 #include "led_state.h"
+#include "server_client.h"
 
 #include "driver/i2s_pdm.h"
 #include "esp_err.h"
@@ -23,7 +24,14 @@ static i2s_chan_handle_t s_rx_handle = NULL;
 /* 512 samples @ 16 kHz = 32 ms per frame */
 #define VAD_ATTACK_FRAMES       2
 #define VAD_RELEASE_FRAMES      25      /* ~800 ms */
-#define VAD_CALIBRATION_FRAMES  50      /* ~1.6 s */
+#define VAD_CALIBRATION_FRAMES  50
+#define AUDIO_PREROLL_FRAMES     10      /* ~320 ms */
+
+/*
+ * Static storage: ~10 KB in BSS instead of the 4 KB task stack.
+ */
+static int16_t s_preroll[AUDIO_PREROLL_FRAMES][MIC_SAMPLES];
+      /* ~1.6 s */
 
 /*
  * Safety threshold:
@@ -83,6 +91,11 @@ static void microphone_task(void *arg)
 {
     int16_t samples[MIC_SAMPLES];
 
+    size_t preroll_write = 0;
+    size_t preroll_count = 0;
+
+    bool stream_active = false;
+
     uint32_t noise_floor = 40;
     uint32_t calibration_sum = 0;
     uint32_t calibration_frames = 0;
@@ -128,6 +141,23 @@ static void microphone_task(void *arg)
             count,
             &peak
         );
+
+        /*
+         * The button is a global abort.
+         * If the assistant becomes muted while streaming,
+         * terminate the network request immediately.
+         */
+        if (led_state_get() == CURSORE_STATE_MUTED &&
+            stream_active) {
+
+            ESP_LOGI(TAG, "MUTED: aborting active audio stream");
+
+            server_audio_abort();
+            stream_active = false;
+            voice_active = false;
+            speech_frames = 0;
+            silence_frames = 0;
+        }
 
         /*
          * Initial ambient-noise calibration.
@@ -178,6 +208,26 @@ static void microphone_task(void *arg)
             threshold = vad_threshold(noise_floor);
         }
 
+        /*
+         * Keep the latest ~320 ms while idle.
+         * This prevents the beginning of the first word from
+         * being lost while VAD confirms speech.
+         */
+        if (!voice_active) {
+            memcpy(
+                s_preroll[preroll_write],
+                samples,
+                count * sizeof(int16_t)
+            );
+
+            preroll_write =
+                (preroll_write + 1) % AUDIO_PREROLL_FRAMES;
+
+            if (preroll_count < AUDIO_PREROLL_FRAMES) {
+                preroll_count++;
+            }
+        }
+
         if (!voice_active) {
             if (above_threshold) {
                 speech_frames++;
@@ -198,12 +248,79 @@ static void microphone_task(void *arg)
 
                     if (led_state_get() != CURSORE_STATE_MUTED) {
                         led_state_set(CURSORE_STATE_LISTENING);
+
+                        if (server_audio_begin()) {
+                            stream_active = true;
+
+                            /*
+                             * Send pre-roll in chronological order.
+                             */
+                            size_t start =
+                                (preroll_write +
+                                 AUDIO_PREROLL_FRAMES -
+                                 preroll_count) %
+                                AUDIO_PREROLL_FRAMES;
+
+                            bool preroll_ok = true;
+
+                            for (size_t i = 0;
+                                 i < preroll_count;
+                                 i++) {
+
+                                size_t index =
+                                    (start + i) %
+                                    AUDIO_PREROLL_FRAMES;
+
+                                if (!server_audio_write(
+                                        s_preroll[index],
+                                        MIC_SAMPLES)) {
+
+                                    preroll_ok = false;
+                                    break;
+                                }
+                            }
+
+                            if (!preroll_ok) {
+                                ESP_LOGE(
+                                    TAG,
+                                    "failed sending audio pre-roll"
+                                );
+
+                                server_audio_abort();
+                                stream_active = false;
+                            } else {
+                                ESP_LOGI(
+                                    TAG,
+                                    "audio stream started with %u pre-roll frames",
+                                    (unsigned)preroll_count
+                                );
+                            }
+                        } else {
+                            ESP_LOGE(
+                                TAG,
+                                "unable to open audio stream"
+                            );
+                        }
+
+                        preroll_count = 0;
                     }
                 }
             } else {
                 speech_frames = 0;
             }
         } else {
+            /*
+             * After VOICE START, every frame is streamed,
+             * including the silence used to determine VOICE END.
+             */
+            if (stream_active) {
+                if (!server_audio_write(samples, count)) {
+                    ESP_LOGE(TAG, "audio streaming failed");
+                    server_audio_abort();
+                    stream_active = false;
+                }
+            }
+
             if (above_threshold) {
                 silence_frames = 0;
             } else {
@@ -222,7 +339,43 @@ static void microphone_task(void *arg)
                         (unsigned long)threshold
                     );
 
-                    if (led_state_get() != CURSORE_STATE_MUTED) {
+                    if (stream_active) {
+                        if (led_state_get() != CURSORE_STATE_MUTED) {
+                            led_state_set(CURSORE_STATE_PROCESSING);
+                        }
+
+                        ESP_LOGI(
+                            TAG,
+                            "audio stream complete; waiting for server"
+                        );
+
+                        bool request_ok = server_audio_end();
+                        stream_active = false;
+
+                        ESP_LOGI(
+                            TAG,
+                            "server processing: %s",
+                            request_ok ? "OK" : "FAILED"
+                        );
+
+                        if (led_state_get() != CURSORE_STATE_MUTED) {
+                            if (request_ok) {
+                                led_state_set(CURSORE_STATE_READY);
+                            } else {
+                                led_state_set(CURSORE_STATE_ERROR);
+                                vTaskDelay(pdMS_TO_TICKS(1000));
+
+                                if (led_state_get() ==
+                                    CURSORE_STATE_ERROR) {
+                                    led_state_set(
+                                        CURSORE_STATE_READY
+                                    );
+                                }
+                            }
+                        }
+                    } else if (
+                        led_state_get() != CURSORE_STATE_MUTED) {
+
                         led_state_set(CURSORE_STATE_READY);
                     }
                 }
@@ -313,7 +466,7 @@ void microphone_init(void)
     xTaskCreate(
         microphone_task,
         "microphone",
-        4096,
+        8192,
         NULL,
         5,
         NULL
