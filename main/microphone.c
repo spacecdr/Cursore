@@ -1,25 +1,99 @@
 #include "microphone.h"
 #include "config.h"
+#include "led_state.h"
 
 #include "driver/i2s_pdm.h"
-#include "esp_log.h"
 #include "esp_err.h"
+#include "esp_log.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 static const char *TAG = "microphone";
+
 static i2s_chan_handle_t s_rx_handle = NULL;
 
-#define MIC_SAMPLE_RATE 16000
-#define MIC_SAMPLES     512
+#define MIC_SAMPLE_RATE         16000
+#define MIC_SAMPLES             512
+
+/* 512 samples @ 16 kHz = 32 ms per frame */
+#define VAD_ATTACK_FRAMES       2
+#define VAD_RELEASE_FRAMES      25      /* ~800 ms */
+#define VAD_CALIBRATION_FRAMES  50      /* ~1.6 s */
+
+/*
+ * Safety threshold:
+ * measured silence on this Atom was ~35-50 avg_abs.
+ * This prevents an unrealistically low adaptive threshold.
+ */
+#define VAD_MIN_THRESHOLD       180
+
+/*
+ * Voice threshold = noise floor * 4.
+ * Measured speech was ~800-1700, so there is ample margin.
+ */
+#define VAD_NOISE_MULTIPLIER    4
+
+static uint32_t calculate_avg_abs(
+    const int16_t *samples,
+    size_t count,
+    int32_t *peak_out
+)
+{
+    uint64_t sum_abs = 0;
+    int32_t peak = 0;
+
+    for (size_t i = 0; i < count; i++) {
+        int32_t v = samples[i];
+
+        if (v < 0) {
+            v = -v;
+        }
+
+        sum_abs += (uint32_t)v;
+
+        if (v > peak) {
+            peak = v;
+        }
+    }
+
+    if (peak_out != NULL) {
+        *peak_out = peak;
+    }
+
+    return count > 0 ? (uint32_t)(sum_abs / count) : 0;
+}
+
+static uint32_t vad_threshold(uint32_t noise_floor)
+{
+    uint32_t threshold = noise_floor * VAD_NOISE_MULTIPLIER;
+
+    if (threshold < VAD_MIN_THRESHOLD) {
+        threshold = VAD_MIN_THRESHOLD;
+    }
+
+    return threshold;
+}
 
 static void microphone_task(void *arg)
 {
     int16_t samples[MIC_SAMPLES];
+
+    uint32_t noise_floor = 40;
+    uint32_t calibration_sum = 0;
+    uint32_t calibration_frames = 0;
+
+    uint32_t speech_frames = 0;
+    uint32_t silence_frames = 0;
+
+    uint32_t log_counter = 0;
+
+    bool calibrated = false;
+    bool voice_active = false;
 
     while (1) {
         size_t bytes_read = 0;
@@ -33,7 +107,11 @@ static void microphone_task(void *arg)
         );
 
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "I2S read failed: %s", esp_err_to_name(err));
+            ESP_LOGE(
+                TAG,
+                "I2S read failed: %s",
+                esp_err_to_name(err)
+            );
             continue;
         }
 
@@ -43,49 +121,157 @@ static void microphone_task(void *arg)
             continue;
         }
 
-        uint64_t sum_abs = 0;
         int32_t peak = 0;
 
-        for (size_t i = 0; i < count; i++) {
-            int32_t v = samples[i];
+        uint32_t level = calculate_avg_abs(
+            samples,
+            count,
+            &peak
+        );
 
-            if (v < 0) {
-                v = -v;
+        /*
+         * Initial ambient-noise calibration.
+         */
+        if (!calibrated) {
+            calibration_sum += level;
+            calibration_frames++;
+
+            if (calibration_frames >= VAD_CALIBRATION_FRAMES) {
+                noise_floor =
+                    calibration_sum / calibration_frames;
+
+                if (noise_floor < 10) {
+                    noise_floor = 10;
+                }
+
+                calibrated = true;
+
+                ESP_LOGI(
+                    TAG,
+                    "VAD calibrated: noise_floor=%lu threshold=%lu",
+                    (unsigned long)noise_floor,
+                    (unsigned long)vad_threshold(noise_floor)
+                );
             }
 
-            sum_abs += (uint32_t)v;
+            continue;
+        }
 
-            if (v > peak) {
-                peak = v;
+        uint32_t threshold = vad_threshold(noise_floor);
+        bool above_threshold = level >= threshold;
+
+        /*
+         * Slowly adapt the noise floor only while we're confident
+         * that the current frame is background noise.
+         *
+         * EMA approximately:
+         * new_floor = 98% old + 2% current.
+         */
+        if (!voice_active && !above_threshold) {
+            noise_floor =
+                (noise_floor * 49 + level) / 50;
+
+            if (noise_floor < 10) {
+                noise_floor = 10;
+            }
+
+            threshold = vad_threshold(noise_floor);
+        }
+
+        if (!voice_active) {
+            if (above_threshold) {
+                speech_frames++;
+
+                if (speech_frames >= VAD_ATTACK_FRAMES) {
+                    voice_active = true;
+                    silence_frames = 0;
+                    speech_frames = 0;
+
+                    ESP_LOGI(
+                        TAG,
+                        "VOICE START level=%lu peak=%ld floor=%lu threshold=%lu",
+                        (unsigned long)level,
+                        (long)peak,
+                        (unsigned long)noise_floor,
+                        (unsigned long)threshold
+                    );
+
+                    if (led_state_get() != CURSORE_STATE_MUTED) {
+                        led_state_set(CURSORE_STATE_LISTENING);
+                    }
+                }
+            } else {
+                speech_frames = 0;
+            }
+        } else {
+            if (above_threshold) {
+                silence_frames = 0;
+            } else {
+                silence_frames++;
+
+                if (silence_frames >= VAD_RELEASE_FRAMES) {
+                    voice_active = false;
+                    silence_frames = 0;
+
+                    ESP_LOGI(
+                        TAG,
+                        "VOICE END level=%lu peak=%ld floor=%lu threshold=%lu",
+                        (unsigned long)level,
+                        (long)peak,
+                        (unsigned long)noise_floor,
+                        (unsigned long)threshold
+                    );
+
+                    if (led_state_get() != CURSORE_STATE_MUTED) {
+                        led_state_set(CURSORE_STATE_READY);
+                    }
+                }
             }
         }
 
-        uint32_t avg_abs = (uint32_t)(sum_abs / count);
+        /*
+         * Diagnostic line roughly every second.
+         * Avoid flooding the serial monitor.
+         */
+        log_counter++;
 
-        ESP_LOGI(
-            TAG,
-            "samples=%u avg_abs=%lu peak=%ld",
-            (unsigned)count,
-            (unsigned long)avg_abs,
-            (long)peak
-        );
+        if (log_counter >= 31) {
+            log_counter = 0;
 
-        vTaskDelay(pdMS_TO_TICKS(200));
+            ESP_LOGI(
+                TAG,
+                "VAD level=%lu peak=%ld floor=%lu threshold=%lu active=%d",
+                (unsigned long)level,
+                (long)peak,
+                (unsigned long)noise_floor,
+                (unsigned long)threshold,
+                voice_active ? 1 : 0
+            );
+        }
     }
 }
 
 void microphone_init(void)
 {
     i2s_chan_config_t chan_cfg =
-        I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+        I2S_CHANNEL_DEFAULT_CONFIG(
+            I2S_NUM_0,
+            I2S_ROLE_MASTER
+        );
 
     ESP_ERROR_CHECK(
-        i2s_new_channel(&chan_cfg, NULL, &s_rx_handle)
+        i2s_new_channel(
+            &chan_cfg,
+            NULL,
+            &s_rx_handle
+        )
     );
 
     i2s_pdm_rx_config_t pdm_cfg = {
         .clk_cfg =
-            I2S_PDM_RX_CLK_DEFAULT_CONFIG(MIC_SAMPLE_RATE),
+            I2S_PDM_RX_CLK_DEFAULT_CONFIG(
+                MIC_SAMPLE_RATE
+            ),
 
         .slot_cfg =
             I2S_PDM_RX_SLOT_PCM_FMT_DEFAULT_CONFIG(
@@ -96,6 +282,7 @@ void microphone_init(void)
         .gpio_cfg = {
             .clk = ATOM_ECHO_PDM_CLOCK_GPIO,
             .din = ATOM_ECHO_PDM_DATA_GPIO,
+
             .invert_flags = {
                 .clk_inv = false,
             },
@@ -110,7 +297,9 @@ void microphone_init(void)
     );
 
     ESP_ERROR_CHECK(
-        i2s_channel_enable(s_rx_handle)
+        i2s_channel_enable(
+            s_rx_handle
+        )
     );
 
     ESP_LOGI(
