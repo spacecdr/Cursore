@@ -6,6 +6,13 @@ services:
     environment:
       CURSORE_HOST: 0.0.0.0
       CURSORE_PORT: 8766
+      GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY is required}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      TTS_PROVIDER: ${TTS_PROVIDER:-gemini}
+      GEMINI_TTS_MODEL: ${GEMINI_TTS_MODEL:-gemini-3.1-flash-tts-preview}
+      GEMINI_TTS_VOICE: ${GEMINI_TTS_VOICE:-Kore}
+      PIPER_MODEL: ${PIPER_MODEL:-it_IT-riccardo-x_low}
     ports:
       - "127.0.0.1:8766:8766"
       - "192.168.123.5:8766:8766"
@@ -15,3 +22,5 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777

@@ -35,3 +35,7 @@ Implementato e verificato:
 - controllo dello stato e dell’uso RAM del container.
 
 STT, AI, TTS, firmware, wake word, Node-RED e Home Assistant non sono stati implementati.
+
+## Protocollo Atom v1
+
+Durante `LISTENING` l’Atom apre `POST /api/v1/requests` con `Transfer-Encoding: chunked` e invia progressivamente PCM signed 16-bit little-endian, mono, 16000 Hz. Il VAD locale chiude lo stream con il terminating chunk a lunghezza zero; il server crea quindi il WAV temporaneo e avvia STT. `Content-Length` resta supportato per test e interoperabilità, ma non è il protocollo ufficiale dell’Atom.
