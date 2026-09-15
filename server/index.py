@@ -1,6 +1,6 @@
 import json, os, re, shutil, tempfile, time, uuid, wave, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from providers import GroqSTT, GeminiLLM, PiperTTS, GeminiTTS
+from providers import GroqSTT, GroqLLM, PiperTTS, GeminiTTS
 
 HOST=os.getenv('CURSORE_HOST','0.0.0.0'); PORT=int(os.getenv('CURSORE_PORT','8766'))
 MAX_SECONDS=int(os.getenv('CURSORE_MAX_SECONDS','30')); MAX_BYTES=16000*2*MAX_SECONDS
@@ -61,16 +61,12 @@ class Handler(BaseHTTPRequestHandler):
             with wave.open(wavfile,'wb') as out:
                 out.setnchannels(1); out.setsampwidth(2); out.setframerate(16000)
                 with open(pcm,'rb') as source: out.writeframes(source.read())
-            stt=GroqSTT().transcribe(wavfile); llm=GeminiLLM().complete(stt['text'])
-            try:
-                tts=(GeminiTTS() if os.getenv('TTS_PROVIDER','gemini')=='gemini' else PiperTTS()).synthesize(llm['text'],audio)
-            except Exception as tts_error:
-                print(f'tts_primary_failed fallback=piper error={type(tts_error).__name__}',flush=True)
-                tts=PiperTTS().synthesize(llm['text'],audio)
+            stt=GroqSTT().transcribe(wavfile); llm=GroqLLM().complete(stt['text'])
+            tts=PiperTTS().synthesize(llm['text'],audio)
             total_ms=round((time.monotonic()-started)*1000); stored[rid]={'audio':audio,'created':time.time()}
             threading.Timer(300, lambda: (stored.pop(rid, None), shutil.rmtree(directory, ignore_errors=True))).start()
             print(f'request={rid} device={device} bytes={total} total_ms={total_ms}',flush=True)
-            return reply(self,200,{'request_id':rid,'status':'completed','transcript':stt['text'],'response_text':llm['text'],'audio':{'url':f'/api/v1/requests/{rid}/audio','content_type':'audio/wav','sample_rate':16000,'channels':1,'encoding':'pcm_s16le','size_bytes':os.path.getsize(audio)},'timings_ms':{'stt':stt['ms'],'llm':llm['ms'],'tts':tts['ms'],'audio_conversion':tts['conversion_ms'],'total':total_ms},'providers':{'stt':'groq-whisper-large-v3-turbo','llm':'gemini-3.6-flash','tts':tts['provider']}})
+            return reply(self,200,{'request_id':rid,'status':'completed','transcript':stt['text'],'response_text':llm['text'],'audio':{'url':f'/api/v1/requests/{rid}/audio','content_type':'audio/wav','sample_rate':16000,'channels':1,'encoding':'pcm_s16le','size_bytes':os.path.getsize(audio)},'timings_ms':{'stt':stt['ms'],'llm':llm['ms'],'tts':tts['ms'],'audio_conversion':tts['conversion_ms'],'total':total_ms},'providers':{'stt':'groq-whisper-large-v3-turbo','llm':llm.get('provider','openai/gpt-oss-20b'),'tts':tts['provider']}})
         except Exception as exc:
             print(
                 f'request={rid} failed type={type(exc).__name__} error={str(exc)[:160]}',
@@ -83,4 +79,13 @@ class Handler(BaseHTTPRequestHandler):
                 except FileNotFoundError: pass
             lock.release()
 
-os.makedirs(ROOT,exist_ok=True); server=ThreadingHTTPServer((HOST,PORT),Handler); print(f'cursore-server listening on {HOST}:{PORT}',flush=True); server.serve_forever()
+os.makedirs(ROOT,exist_ok=True)
+
+# Preload Piper once at server startup so the first voice request
+# has the same low latency as all subsequent requests.
+print('preloading Piper TTS...', flush=True)
+PiperTTS._get_voice()
+
+server=ThreadingHTTPServer((HOST,PORT),Handler)
+print(f'cursore-server listening on {HOST}:{PORT}',flush=True)
+server.serve_forever()
