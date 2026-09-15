@@ -2,6 +2,7 @@
 #include "config.h"
 #include "led_state.h"
 #include "server_client.h"
+#include "speaker.h"
 
 #include "driver/i2s_pdm.h"
 #include "esp_err.h"
@@ -358,6 +359,33 @@ static void microphone_task(void *arg)
                             request_ok ? "OK" : "FAILED"
                         );
 
+                        if (request_ok &&
+                            led_state_get() != CURSORE_STATE_MUTED) {
+
+                            const char *audio_url =
+                                server_audio_get_url();
+
+                            if (audio_url != NULL) {
+                                led_state_set(
+                                    CURSORE_STATE_SPEAKING
+                                );
+
+                                bool playback_ok =
+                                    speaker_play_url(audio_url);
+
+                                ESP_LOGI(
+                                    TAG,
+                                    "speaker playback: %s",
+                                    playback_ok ? "OK" : "FAILED"
+                                );
+                            } else {
+                                ESP_LOGE(
+                                    TAG,
+                                    "server response has no audio URL"
+                                );
+                            }
+                        }
+
                         if (led_state_get() != CURSORE_STATE_MUTED) {
                             if (request_ok) {
                                 led_state_set(CURSORE_STATE_READY);
@@ -402,6 +430,119 @@ static void microphone_task(void *arg)
             );
         }
     }
+}
+
+
+bool microphone_audio_pause(void)
+{
+    if (s_rx_handle == NULL) {
+        return true;
+    }
+
+    esp_err_t err = i2s_channel_disable(s_rx_handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(
+            TAG,
+            "unable to disable microphone: %s",
+            esp_err_to_name(err)
+        );
+        return false;
+    }
+
+    err = i2s_del_channel(s_rx_handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(
+            TAG,
+            "unable to release microphone I2S: %s",
+            esp_err_to_name(err)
+        );
+        return false;
+    }
+
+    s_rx_handle = NULL;
+
+    ESP_LOGI(TAG, "microphone I2S released for speaker");
+    return true;
+}
+
+bool microphone_audio_resume(void)
+{
+    if (s_rx_handle != NULL) {
+        return true;
+    }
+
+    i2s_chan_config_t chan_cfg =
+        I2S_CHANNEL_DEFAULT_CONFIG(
+            I2S_NUM_0,
+            I2S_ROLE_MASTER
+        );
+
+    esp_err_t err =
+        i2s_new_channel(
+            &chan_cfg,
+            NULL,
+            &s_rx_handle
+        );
+
+    if (err != ESP_OK) {
+        ESP_LOGE(
+            TAG,
+            "unable to recreate microphone channel: %s",
+            esp_err_to_name(err)
+        );
+        s_rx_handle = NULL;
+        return false;
+    }
+
+    i2s_pdm_rx_config_t pdm_cfg = {
+        .clk_cfg =
+            I2S_PDM_RX_CLK_DEFAULT_CONFIG(
+                MIC_SAMPLE_RATE
+            ),
+
+        .slot_cfg =
+            I2S_PDM_RX_SLOT_PCM_FMT_DEFAULT_CONFIG(
+                I2S_DATA_BIT_WIDTH_16BIT,
+                I2S_SLOT_MODE_MONO
+            ),
+
+        .gpio_cfg = {
+            .clk = ATOM_ECHO_PDM_CLOCK_GPIO,
+            .din = ATOM_ECHO_PDM_DATA_GPIO,
+
+            .invert_flags = {
+                .clk_inv = false,
+            },
+        },
+    };
+
+    err = i2s_channel_init_pdm_rx_mode(
+        s_rx_handle,
+        &pdm_cfg
+    );
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "PDM resume init failed: %s",
+                 esp_err_to_name(err));
+        i2s_del_channel(s_rx_handle);
+        s_rx_handle = NULL;
+        return false;
+    }
+
+    err = i2s_channel_enable(s_rx_handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "PDM resume enable failed: %s",
+                 esp_err_to_name(err));
+        i2s_del_channel(s_rx_handle);
+        s_rx_handle = NULL;
+        return false;
+    }
+
+    ESP_LOGI(TAG, "microphone PDM resumed");
+    return true;
 }
 
 void microphone_init(void)

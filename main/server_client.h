@@ -16,3 +16,5 @@ bool server_audio_write(
 bool server_audio_end(void);
 
 void server_audio_abort(void);
+
+const char *server_audio_get_url(void);

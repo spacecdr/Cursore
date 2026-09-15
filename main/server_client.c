@@ -23,6 +23,7 @@ static const char *TAG = "server";
 static int s_audio_socket = -1;
 static uint32_t s_request_counter = 0;
 static char s_audio_response[2048];
+static char s_audio_url[192];
 
 typedef struct {
     char body[256];
@@ -445,6 +446,38 @@ bool server_audio_end(void)
 
     s_audio_response[total] = '\0';
 
+    /*
+     * Extract audio.url from the JSON body returned by Cursore.
+     */
+    s_audio_url[0] = '\0';
+
+    char *body = strstr(s_audio_response, "\r\n\r\n");
+
+    if (body != NULL) {
+        body += 4;
+
+        cJSON *json = cJSON_Parse(body);
+
+        if (json != NULL) {
+            cJSON *audio = cJSON_GetObjectItem(json, "audio");
+            cJSON *url = audio ?
+                cJSON_GetObjectItem(audio, "url") : NULL;
+
+            if (cJSON_IsString(url) &&
+                url->valuestring != NULL) {
+
+                snprintf(
+                    s_audio_url,
+                    sizeof(s_audio_url),
+                    "%s",
+                    url->valuestring
+                );
+            }
+
+            cJSON_Delete(json);
+        }
+    }
+
     bool http_ok =
         total >= 12 &&
         (
@@ -476,4 +509,10 @@ bool server_audio_end(void)
     s_audio_socket = -1;
 
     return http_ok;
+}
+
+
+const char *server_audio_get_url(void)
+{
+    return s_audio_url[0] ? s_audio_url : NULL;
 }
