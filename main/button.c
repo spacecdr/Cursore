@@ -24,7 +24,7 @@ static void button_task(void *arg)
 }
 void button_init(void)
 {
-    gpio_config_t cfg = {.pin_bit_mask = 1ULL << ATOM_ECHO_BUTTON_GPIO, .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE, .pull_down_en = GPIO_PULLDOWN_DISABLE, .intr_type = GPIO_INTR_DISABLE};
+    gpio_config_t cfg = {.pin_bit_mask = 1ULL << ATOM_ECHO_BUTTON_GPIO, .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_DISABLE, .pull_down_en = GPIO_PULLDOWN_DISABLE, .intr_type = GPIO_INTR_DISABLE};
     ESP_ERROR_CHECK(gpio_config(&cfg));
     xTaskCreate(button_task, "button", 2048, NULL, 5, NULL);
 }
