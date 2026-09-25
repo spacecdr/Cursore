@@ -2,6 +2,8 @@
 
 Firmware standalone per M5Stack Atom Echo originale: un piccolo terminale vocale locale per un assistente AI ispirato ad Automan.
 
+[Pagina del progetto](https://spacecdr.github.io/Cursore/) · [Specifiche](docs/specification.md) · [Architettura](docs/architecture.md) · [Fattibilità wake word](docs/wake-word-feasibility.md)
+
 ![Cursore Atom Echo](assets/cursore-atom-hero.png)
 
 > Il nome **Cursore** richiama l'assistente di Automan: un'interfaccia discreta, sempre pronta, tra persona, macchina e rete locale.
