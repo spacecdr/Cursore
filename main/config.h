@@ -2,8 +2,6 @@
 #define CURSORE_SERVER_HOST "192.168.123.5"
 #define CURSORE_SERVER_PORT 8766
 #define CURSORE_HEALTH_PATH "/health"
-#define CURSORE_WIFI_PRIMARY "Pepis"
-#define CURSORE_WIFI_FALLBACK "PepisRoofTop"
 #define ATOM_ECHO_LED_GPIO 27
 #define ATOM_ECHO_BUTTON_GPIO 39
 // Reserved for future audio phases; do not initialize in MAC-1.

@@ -1,0 +1,18 @@
+name: ESP-IDF build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v6.0.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare public credentials placeholder
+        run: cp main/secrets.example.h main/secrets.h
+      - name: Select original ESP32 target
+        run: idf.py set-target esp32
+      - name: Build firmware
+        run: idf.py build

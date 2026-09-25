@@ -1,0 +1,10 @@
+services:
+  firmware-build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cursore-firmware:v6.0.3
+    command: idf.py build
+    volumes:
+      - .:/project
+    working_dir: /project

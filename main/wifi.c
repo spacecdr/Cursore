@@ -1,6 +1,10 @@
 #include "wifi.h"
 #include "config.h"
+#if __has_include("secrets.h")
 #include "secrets.h"
+#else
+#include "secrets.example.h"
+#endif
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
