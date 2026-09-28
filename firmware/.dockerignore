@@ -1,0 +1,13 @@
+*
+!Dockerfile
+!CMakeLists.txt
+!IDF_VERSION
+!partitions.csv
+!sdkconfig.defaults
+!main/
+!main/*.c
+!main/*.h
+!main/CMakeLists.txt
+!main/idf_component.yml
+main/secrets.h
+!main/secrets.example.h

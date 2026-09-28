@@ -1,41 +1,108 @@
 # Cursore
 
-Assistente vocale basato su M5Stack Atom Echo + DietServer.
+Assistente vocale con M5Stack Atom Echo originale e backend DietServer, senza Home Assistant.
+Un unico repository contiene il lavoro svolto dal server e dal Mac.
 
-Wake word: **Cursore**
+![Cursore Atom Echo](assets/cursore-atom-hero.png)
 
-## Server
+## Prima di lavorare da un altro computer
 
-DietServer: 192.168.123.5
+Leggere [collaborazione tra sessioni](docs/collaboration.md), [stato e passaggio di consegne](docs/handoff.md)
+e [AGENTS.md](AGENTS.md). Codice e documenti Git sono condivisi; chat, credenziali e file di build no.
 
-Il backend è containerizzato e indipendente dai container Docker già presenti.
+## Struttura
 
-## Firmware
+| Percorso | Contenuto |
+|---|---|
+| `server/` | Backend Python, provider e immagine Docker |
+| `docker-compose.yml` | Solo cursore-server, usato sul DietServer |
+| `firmware/` | Firmware ESP-IDF, build sul Mac e CI |
+| `firmware/docker-compose.yml` | Build Docker firmware separata |
+| `docs/` | Architettura, API, handoff e sito GitHub Pages |
+| `wakeword/` | Percorso previsto per il futuro modello; nessun modello incluso |
+| `.env.example` | Template backend senza chiavi |
+| `firmware/main/secrets.example.h` | Template Wi-Fi senza password |
 
-Il firmware viene mantenuto nel repository ma compilato e flashato localmente dal Mac.
+## Stato effettivo
 
-## Stati LED
+Il backend dispone di health, upload PCM chunked, STT Groq Whisper in italiano,
+LLM Groq GPT-OSS e TTS Piper persistente. Restituisce un URL temporaneo al WAV.
+GeminiTTS è conservato nel codice ma non è utilizzato nel percorso attivo.
+Non è attualmente sufficiente cambiare `TTS_PROVIDER` per selezionarlo.
 
-- Rosso: microfono disabilitato
-- Verde: pronto / wake-word detection
-- Giallo: ascolto
-- Blu: elaborazione
-- Viola: risposta vocale
+Il firmware contiene Wi-Fi primaria/fallback, pulsante mute, LED, acquisizione PDM,
+VAD adattivo, upload progressivo e riproduzione WAV I²S.
 
-Consultare AGENTS.md per specifiche e vincoli completi.
+**La wake word locale “Cursore” non è implementata. Il firmware attuale avvia
+l'upload al rilevamento VAD: il requisito di non inviare audio prima della wake word
+non è ancora soddisfatto.** Non considerarlo pronto per l'ascolto ambientale.
+L'integrazione del repository non modifica questo comportamento.
 
-## Stato PHASE 1 / PHASE 2
+I benchmark delle chat precedenti possono riferirsi a provider e implementazioni
+diversi. Vedere l'handoff per lo stato del codice, senza dedurre nuove prestazioni
+dai vecchi numeri.
 
-Implementato e verificato:
+## Backend sul DietServer
 
-- audit iniziale dell’ambiente Debian 13, Docker/Compose, container esistenti e porte;
-- container autonomo `cursore-server` definito da questo `docker-compose.yml`;
-- endpoint `GET /health` sulla porta TCP `8766`, con risposta JSON `{ "status": "ok", "service": "cursore-server" }`;
-- verifica locale e tramite `192.168.123.5:8766`;
-- controllo dello stato e dell’uso RAM del container.
+Il servizio esistente usa `192.168.123.5:8766` e loopback. Il compose root è dedicato;
+non modificare quello in `/root/DOCKER/docker-compose.yml`.
 
-STT, AI, TTS, firmware, wake word, Node-RED e Home Assistant non sono stati implementati.
+Solo su una nuova installazione e se `.env` non esiste:
+
+```sh
+cp .env.example .env
+chmod 600 .env
+# Compilare localmente le chiavi. Non pubblicare il file.
+```
+
+```sh
+docker compose config --quiet
+# Build/avvio solo quando si intende distribuire sul DietServer:
+docker compose up -d --build cursore-server
+curl --fail http://127.0.0.1:8766/health
+```
+
+Il compose corrente richiede sia GROQ_API_KEY sia GEMINI_API_KEY, anche se Gemini
+non è chiamato dal percorso attivo. Il binding LAN è specifico del DietServer:
+un clone sul Mac non implica avviare questo servizio. Vedere [server/README.md](server/README.md).
+
+## Firmware sul Mac
+
+Il vecchio progetto ESP-IDF nella root di GitHub è ora in `firmware/`.
+Attivare l'ambiente ESP-IDF v6.0.3 del proprio Mac, poi:
+
+```sh
+cd firmware
+# Solo se secrets.h non esiste:
+cp main/secrets.example.h main/secrets.h
+# Configurare localmente SSID e password.
+idf.py set-target esp32
+idf.py build
+```
+
+Per istruzioni Docker e migrazione del vecchio clone vedere [firmware/README.md](firmware/README.md).
+Il flash avviene soltanto sul Mac collegato via USB, su richiesta esplicita.
 
 ## Protocollo Atom v1
 
-Durante `LISTENING` l’Atom apre `POST /api/v1/requests` con `Transfer-Encoding: chunked` e invia progressivamente PCM signed 16-bit little-endian, mono, 16000 Hz. Il VAD locale chiude lo stream con il terminating chunk a lunghezza zero; il server crea quindi il WAV temporaneo e avvia STT. `Content-Length` resta supportato per test e interoperabilità, ma non è il protocollo ufficiale dell’Atom.
+Dopo la futura wake word locale, l'Atom apre `POST /api/v1/requests` HTTP/1.1 con
+`Transfer-Encoding: chunked`, inviando PCM signed 16-bit little-endian, mono, 16000 Hz.
+Il VAD locale determina la fine e invia il chunk terminale zero.
+Il server attende il completamento dell'upload prima dello STT, risponde JSON e
+rende disponibile il WAV con `GET /api/v1/requests/<id>/audio`.
+Content-Length resta supportato per test/interoperabilità.
+Vedere [contratto API](docs/api.md).
+
+## Sicurezza e licenze
+
+Credenziali backend, Wi-Fi e autenticazione GitHub restano sui singoli computer.
+Non pubblicare registrazioni, build contenenti password o file di autenticazione.
+I workflow CI usano soltanto segnaposto e non flashano dispositivi.
+
+La licenza MIT del firmware è conservata in [firmware/LICENSE](firmware/LICENSE).
+Non viene estesa automaticamente al backend o alle sue dipendenze.
+Piper OHF-Voice usa GPL-3.0-or-later; ogni voce ha condizioni proprie.
+Prima di redistribuire immagini e modelli verificarne separatamente le licenze.
+
+[Architettura](docs/architecture.md) · [Hardware](docs/specification.md) ·
+[Wake word](docs/wake-word-feasibility.md) · [Pagina progetto](https://spacecdr.github.io/Cursore/)

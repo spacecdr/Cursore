@@ -11,3 +11,26 @@ data/*
 !data/.gitkeep
 logs/*
 !logs/.gitkeep
+**/secrets.h
+**/secrets.yaml
+**/secrets.yml
+**/.env
+**/.env.*
+!**/.env.example
+firmware/build/
+firmware/managed_components/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/dependencies.lock
+# Vecchi output dei clone firmware precedenti alla riorganizzazione.
+/build/
+/managed_components/
+/sdkconfig
+/sdkconfig.old
+/dependencies.lock
+.DS_Store
+.vscode/
+.idea/
+*.wav
+*.pcm
+*.onnx

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650">
+  <rect width="1200" height="650" fill="#0b1220"/>
+  <text x="60" y="70" fill="#e5f0ff" font-family="Arial,sans-serif" font-size="34" font-weight="700">Cursore — terminale vocale LAN</text>
+  <text x="60" y="105" fill="#8fa8c7" font-family="Arial,sans-serif" font-size="18">Atom Echo originale · ESP32-PICO-D4 · ESP-IDF standalone</text>
+  <rect x="70" y="180" width="310" height="330" rx="24" fill="#17263d" stroke="#4dd7ff" stroke-width="3"/>
+  <text x="105" y="225" fill="#ffffff" font-family="Arial,sans-serif" font-size="26" font-weight="700">ATOM ECHO</text>
+  <text x="105" y="265" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">PDM mic · GPIO23/33</text>
+  <text x="105" y="300" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">I²S speaker · GPIO19/22/33</text>
+  <text x="105" y="335" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">Button · GPIO39</text>
+  <text x="105" y="370" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">SK6812 · GPIO27</text>
+  <text x="105" y="430" fill="#61e294" font-family="Arial,sans-serif" font-size="20">VAD locale</text>
+  <text x="105" y="462" fill="#61e294" font-family="Arial,sans-serif" font-size="20">LED state machine</text>
+  <rect x="475" y="180" width="250" height="330" rx="24" fill="#1e293b" stroke="#ffd166" stroke-width="3"/>
+  <text x="515" y="225" fill="#ffffff" font-family="Arial,sans-serif" font-size="26" font-weight="700">LAN</text>
+  <text x="515" y="275" fill="#ffe29a" font-family="Arial,sans-serif" font-size="20">Wi-Fi primary (local config)</text>
+  <text x="515" y="310" fill="#ffe29a" font-family="Arial,sans-serif" font-size="20">Fallback SSID (local config)</text>
+  <text x="515" y="380" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">PCM stream</text>
+  <text x="515" y="415" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">WAV stream</text>
+  <text x="515" y="470" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">No cloud required</text>
+  <rect x="820" y="180" width="310" height="330" rx="24" fill="#17263d" stroke="#c084fc" stroke-width="3"/>
+  <text x="860" y="225" fill="#ffffff" font-family="Arial,sans-serif" font-size="26" font-weight="700">CURSORE-SERVER</text>
+  <text x="860" y="270" fill="#d8b4fe" font-family="Arial,sans-serif" font-size="20">192.168.123.5:8766</text>
+  <text x="860" y="345" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">STT</text>
+  <text x="860" y="380" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">LLM</text>
+  <text x="860" y="415" fill="#a9c3df" font-family="Arial,sans-serif" font-size="18">TTS</text>
+  <text x="860" y="470" fill="#61e294" font-family="Arial,sans-serif" font-size="18">GET /health → 200 JSON</text>
+  <path d="M380 345 H475" stroke="#4dd7ff" stroke-width="5" marker-end="url(#arrow)"/>
+  <path d="M725 345 H820" stroke="#ffd166" stroke-width="5" marker-end="url(#arrow)"/>
+  <defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#ffffff"/></marker></defs>
+  <text x="60" y="595" fill="#7188a6" font-family="Arial,sans-serif" font-size="16">Prima della futura wake word “Cursore”, nessun audio viene trasmesso.</text>
+</svg>

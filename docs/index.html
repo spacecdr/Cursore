@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cursore — terminale vocale locale</title>
+<meta name="description" content="Cursore trasforma il M5Stack Atom Echo originale in un terminale vocale locale per un assistente AI, senza cloud obbligatorio.">
+<meta name="theme-color" content="#071016">
+<meta property="og:title" content="Cursore · terminale vocale locale">
+<meta property="og:description" content="Wake word locale, audio progressivo e backend AI sulla LAN.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://spacecdr.github.io/Cursore/cursore-atom-hero.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Vai al contenuto</a>
+<header class="nav wrap">
+  <a class="brand" href="#" aria-label="Cursore, inizio pagina"><span class="mark">⌁</span> Cursore</a>
+  <nav aria-label="Navigazione"><a href="#flusso">Flusso</a><a href="#hardware">Hardware</a><a href="https://github.com/spacecdr/Cursore">GitHub ↗</a></nav>
+</header>
+<main id="main">
+<section class="hero wrap">
+  <div>
+    <p class="eyebrow"><span class="live"></span> ATOM ECHO · ESP-IDF · LAN LOCALE</p>
+    <h1>Ascolta solo<br><em>quando lo chiami.</em></h1>
+    <p class="lead">Cursore riunisce firmware Atom Echo e backend DietServer. La wake word locale è l’obiettivo ancora da implementare; oggi il firmware avvia l’audio con il VAD. Il server usa servizi cloud per STT/LLM e Piper locale per la voce.</p>
+    <div class="actions"><a class="button primary" href="https://github.com/spacecdr/Cursore">Esplora il codice <span>↗</span></a><a class="button secondary" href="#flusso">Come funziona ↓</a></div>
+    <p class="micro">M5Stack Atom Echo · ESP32-PICO-D4 · 4 MB · no PSRAM · standalone</p>
+  </div>
+  <div class="hero-visual">
+    <div class="grid" aria-hidden="true"></div><div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div>
+    <div class="atom-card"><img src="cursore-atom-hero.png" alt="Visualizzazione concettuale di Cursore con Atom Echo e rete locale"><span class="led-dot"></span></div>
+    <div class="float-tag tag-one"><span>01</span> LOCAL WAKE WORD</div><div class="float-tag tag-two"><span>02</span> PROGRESSIVE AUDIO</div>
+    <p class="visual-caption">Visualizzazione concettuale · hardware originale M5Stack</p>
+  </div>
+</section>
+<div class="spec-strip"><div class="wrap strip-inner"><span><b>PDM</b> microfono locale</span><span><b>16 kHz</b> PCM mono</span><span><b>LAN</b> Atom → server · AI cloud</span><span><b>4 MB</b> senza PSRAM</span></div></div>
+
+<section id="flusso" class="wrap section flow">
+  <div class="section-heading"><div><p class="eyebrow">UNA CATENA CHIARA</p><h2>Dalla parola<br>alla risposta.</h2></div><p>Il diagramma mostra l’architettura obiettivo; il gate wake word non è ancora implementato. Codice, API e stato corrente sono documentati nel repository condiviso.</p></div>
+  <img class="architecture" src="architecture.svg" alt="Diagramma: Atom Echo con wake word e VAD, rete LAN, cursore-server con STT, LLM e TTS" loading="lazy">
+  <div class="steps"><article><strong>01</strong><h3>Wake word locale</h3><p>Da implementare: “Cursore” dovrà essere riconosciuto sul dispositivo prima di inviare audio. Il codice attuale parte dal VAD.</p></article><article><strong>02</strong><h3>Audio progressivo</h3><p>Il VAD locale invia PCM signed 16-bit, mono, 16 kHz senza accumulare l’intera frase nella RAM.</p></article><article><strong>03</strong><h3>Risposta in streaming</h3><p>Il server produce STT, LLM e TTS; il WAV viene scaricato e riprodotto progressivamente.</p></article></div>
+</section>
+
+<section class="dark-band"><div class="wrap section state-section"><div><p class="eyebrow">IL LED RACCONTA LO STATO</p><h2>Un colore.<br>Un significato.</h2><p>Il pulsante è il toggle globale: una pressione breve abilita o silenzia l’assistente. Nessun push-to-talk.</p></div><div class="state-grid"><div><i class="red"></i><b>MUTED</b><span>Rosso fisso</span></div><div><i class="green"></i><b>READY</b><span>Verde fisso</span></div><div><i class="yellow"></i><b>LISTENING</b><span>Giallo</span></div><div><i class="blue"></i><b>PROCESSING</b><span>Blu</span></div><div><i class="violet"></i><b>SPEAKING</b><span>Viola</span></div><div><i class="error"></i><b>ERROR</b><span>Rosso temporaneo</span></div></div></div></section>
+
+<section id="hardware" class="wrap section hardware">
+  <div><p class="eyebrow">IL TERMINALE</p><h2>Piccolo dispositivo.<br>Confine netto.</h2><p>L’Atom Echo originale integra microfono, speaker, pulsante e LED in pochi centimetri. Cursore usa solo il modello con ESP32-PICO-D4: non AtomS3, non ESP32-S3.</p><dl class="specs"><div><dt>MCU</dt><dd>ESP32-PICO-D4 · 240 MHz</dd></div><div><dt>Memoria</dt><dd>4 MB flash · no PSRAM</dd></div><div><dt>Microfono</dt><dd>SPM1423 PDM · GPIO23 / GPIO33</dd></div><div><dt>Speaker</dt><dd>NS4168 I²S · GPIO22 / GPIO19 / GPIO33</dd></div><div><dt>Feedback</dt><dd>SK6812 · GPIO27 · pulsante GPIO39</dd></div></dl><a href="https://github.com/spacecdr/Cursore/blob/main/docs/specification.md">Specifiche complete e fonti ↗</a></div>
+  <div class="pin-card"><p class="eyebrow">PINOUT VERIFICATO</p><div class="pin-row"><span>GPIO27</span><b>SK6812</b><em>LED</em></div><div class="pin-row"><span>GPIO39</span><b>Button</b><em>input</em></div><div class="pin-row"><span>GPIO23</span><b>PDM DATA</b><em>mic</em></div><div class="pin-row"><span>GPIO33</span><b>PDM CLK / LRCK</b><em>shared</em></div><div class="pin-row"><span>GPIO19</span><b>I²S BCLK</b><em>speaker</em></div><div class="pin-row"><span>GPIO22</span><b>I²S DOUT</b><em>speaker</em></div></div>
+</section>
+
+<section class="wrap section future"><div><p class="eyebrow">IL PROSSIMO PASSO</p><h2>“Cursore”<br>resta a bordo.</h2><p>La wake word futura sarà un modello locale INT8, studiato per RAM, flash e CPU dell’ESP32 originale. microWakeWord e TensorFlow Lite Micro sono candidati tecnici; nessun servizio esterno è parte del requisito.</p><a href="https://github.com/spacecdr/Cursore/blob/main/docs/wake-word-feasibility.md">Leggi la valutazione tecnica ↗</a></div><div class="future-card"><span class="pulse">⌁</span><p>PRIVACY BY DESIGN</p><strong>Niente audio<br>prima della parola.</strong><small>Requisito obiettivo: il gate wake word è ancora da implementare.</small></div></section>
+
+<section class="wrap section start"><div><p class="eyebrow">STANDALONE, RIPRODUCIBILE</p><h2>Il progetto<br>è aperto.</h2><p>Firmware ESP-IDF in firmware/, backend in server/, documentazione e CI nello stesso repository. Le sessioni Mac e DietServer coordinano il lavoro tramite handoff e guida condivisa.</p></div><div class="actions"><a class="button primary" href="https://github.com/spacecdr/Cursore">Apri GitHub ↗</a><a class="button secondary" href="https://github.com/spacecdr/Cursore/blob/main/README.md">README tecnico ↗</a></div></section>
+</main>
+<footer class="wrap footer"><a class="brand" href="#"><span class="mark">⌁</span> Cursore</a><p>Un progetto standalone per M5Stack Atom Echo · <a href="https://github.com/spacecdr">spacecdr</a></p><a href="https://github.com/spacecdr/Cursore/blob/main/firmware/LICENSE">Licenza MIT firmware</a></footer>
+</body>
+</html>

@@ -1,5 +1,29 @@
 # CURSORE — AI Voice Assistant
 
+## Repository condiviso — leggere prima di lavorare (29 settembre 2026)
+
+Questo repository è ora un monorepo usato da due sessioni/computer.
+Leggere integralmente `README.md`, `docs/collaboration.md` e `docs/handoff.md`
+prima di riprendere il lavoro: la chat precedente può descrivere uno stato superato.
+
+- `server/`: backend DietServer. `docker-compose.yml` nella root avvia solo il backend.
+- `firmware/`: progetto ESP-IDF prima collocato nella root del repo GitHub.
+  Sul Mac eseguire `idf.py` da `firmware/`; vedere `firmware/README.md`.
+- `docs/`: documentazione condivisa e GitHub Pages.
+- `.env` e `firmware/main/secrets.h` sono locali, ignorati da Git; si pubblicano solo template.
+- Prima di iniziare: controllare worktree, fare fetch, leggere gli ultimi commit e l'handoff.
+  Usare un branch per attività; coordinare le modifiche a protocollo, compose, CI e documenti comuni.
+- Non sovrascrivere modifiche dell'altra sessione, non fare force push, non usare reset distruttivi.
+- Aggiornare l'handoff con modifiche, test realmente eseguiti e limiti prima di pubblicare.
+- Build/flash hardware sul Mac; un aggiornamento Git non autorizza il riavvio dei servizi sul server.
+
+Stato corrente: STT Groq, LLM Groq GPT-OSS e Piper persistente nel backend.
+GeminiTTS esiste ma non è chiamato dal percorso attivo; `TTS_PROVIDER` non lo seleziona.
+Il firmware contiene VAD/upload/playback, ma la wake word locale manca e il codice
+attuale apre lo stream al rilevamento VAD. Non dichiarare quindi soddisfatto il vincolo
+"nessun audio prima della wake word". Le sezioni seguenti restano requisiti del progetto,
+non una dichiarazione di funzionalità tutte completate.
+
 ## Obiettivo
 
 Realizzare un assistente vocale denominato "Cursore" utilizzando:

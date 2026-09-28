@@ -1,0 +1,39 @@
+name: Server checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax
+        run: python -m py_compile server/index.py server/providers.py
+      - name: Compose validation with placeholders (no API requests)
+        env:
+          GROQ_API_KEY: ci-placeholder
+          GEMINI_API_KEY: ci-placeholder
+        run: docker compose config --quiet
+      - name: Reject local secrets in tracked files
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess
+          paths = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          forbidden = []
+          for path in filter(None, paths):
+              name = pathlib.PurePosixPath(path).name
+              if (name == '.env' or (name.startswith('.env.') and name != '.env.example')
+                  or name in {'secrets.h', 'secrets.yaml', 'secrets.yml', 'hosts.yml'}
+                  or name.endswith(('.pem', '.key', '.crt'))):
+                  forbidden.append(path)
+          if forbidden:
+              raise SystemExit('Local-only files tracked: ' + ', '.join(forbidden))
+          PY
