@@ -5,6 +5,9 @@
 Questo repository è ora un monorepo usato da due sessioni/computer.
 Leggere integralmente `README.md`, `docs/collaboration.md` e `docs/handoff.md`
 prima di riprendere il lavoro: la chat precedente può descrivere uno stato superato.
+Per nuove installazioni seguire `docs/quickstart.md`; IP, porte, Wi-Fi e chiavi
+sono locali, da template. GitHub è l'unico punto di comunicazione tra sessioni:
+decisioni e verifiche necessarie vanno nell'handoff o nelle issue/PR.
 
 - `server/`: backend DietServer. `docker-compose.yml` nella root avvia solo il backend.
 - `firmware/`: progetto ESP-IDF prima collocato nella root del repo GitHub.

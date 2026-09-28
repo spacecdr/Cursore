@@ -1,6 +1,7 @@
 # Contratto Atom → cursore-server
 
-Endpoint LAN attuale: http://192.168.123.5:8766.
+Endpoint del DietServer: http://192.168.123.5:8766; per altre installazioni
+host e porta sono configurabili come descritto in [quickstart.md](quickstart.md).
 Nessun nome provider o chiave API deve essere conosciuto dal firmware.
 
 ## Upload ufficiale

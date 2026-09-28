@@ -3,6 +3,10 @@
 Assistente vocale con M5Stack Atom Echo originale e backend DietServer, senza Home Assistant.
 Un unico repository contiene il lavoro svolto dal server e dal Mac.
 
+**Per replicarlo:** seguire la [guida rapida per la propria rete](docs/quickstart.md).
+Servono Atom Echo originale, un server Docker e un computer USB con ESP-IDF.
+Il progetto è un prototipo: la wake word locale resta da implementare.
+
 ![Cursore Atom Echo](assets/cursore-atom-hero.png)
 
 ## Prima di lavorare da un altro computer
@@ -44,7 +48,8 @@ dai vecchi numeri.
 
 ## Backend sul DietServer
 
-Il servizio esistente usa `192.168.123.5:8766` e loopback. Il compose root è dedicato;
+Il servizio esistente usa `192.168.123.5:8766` e loopback. IP LAN e porta sono
+configurabili in `.env` con CURSORE_LAN_IP e CURSORE_PORT. Il compose root è dedicato;
 non modificare quello in `/root/DOCKER/docker-compose.yml`.
 
 Solo su una nuova installazione e se `.env` non esiste:
@@ -52,7 +57,7 @@ Solo su una nuova installazione e se `.env` non esiste:
 ```sh
 cp .env.example .env
 chmod 600 .env
-# Compilare localmente le chiavi. Non pubblicare il file.
+# Impostare CURSORE_LAN_IP e GROQ_API_KEY. Non pubblicare il file.
 ```
 
 ```sh
@@ -62,9 +67,9 @@ docker compose up -d --build cursore-server
 curl --fail http://127.0.0.1:8766/health
 ```
 
-Il compose corrente richiede sia GROQ_API_KEY sia GEMINI_API_KEY, anche se Gemini
-non è chiamato dal percorso attivo. Il binding LAN è specifico del DietServer:
-un clone sul Mac non implica avviare questo servizio. Vedere [server/README.md](server/README.md).
+Nel `.env` impostare CURSORE_LAN_IP all'indirizzo LAN del proprio server e GROQ_API_KEY.
+GEMINI_API_KEY è opzionale: Gemini non è chiamato dal percorso attivo.
+Un clone sul Mac non implica avviare questo servizio. Vedere [server/README.md](server/README.md).
 
 ## Firmware sul Mac
 
@@ -76,6 +81,7 @@ cd firmware
 # Solo se secrets.h non esiste:
 cp main/secrets.example.h main/secrets.h
 # Configurare localmente SSID e password.
+# Impostare anche CURSORE_SERVER_HOST e CURSORE_SERVER_PORT nel secrets.h.
 idf.py set-target esp32
 idf.py build
 ```

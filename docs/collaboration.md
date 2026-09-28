@@ -27,6 +27,11 @@ La ripartizione serve al coordinamento e non limita dove si può leggere/modific
 il codice. Una modifica al protocollo va descritta nell'handoff e accompagnata dalle
 modifiche compatibili sull'altro lato. Non presumere che l'altra sessione legga la chat.
 
+GitHub è l'unico canale di sincronizzazione tra i due computer: codice nelle PR,
+stato in docs/handoff.md, decisioni e problemi aperti in issue/PR. Non lasciare
+decisioni necessarie solo nella chat di una sessione o in file assoluti di un Mac.
+Per una nuova installazione indipendente usare [quickstart.md](quickstart.md).
+
 ## Pubblicare il lavoro
 
 - Prima del commit: controllare `git diff` e `git diff --cached`; aggiungere file

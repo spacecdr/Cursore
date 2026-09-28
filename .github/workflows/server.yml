@@ -19,8 +19,8 @@ jobs:
         run: python -m py_compile server/index.py server/providers.py
       - name: Compose validation with placeholders (no API requests)
         env:
+          CURSORE_LAN_IP: 192.0.2.10
           GROQ_API_KEY: ci-placeholder
-          GEMINI_API_KEY: ci-placeholder
         run: docker compose config --quiet
       - name: Reject local secrets in tracked files
         run: |
