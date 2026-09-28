@@ -1,8 +1,0 @@
-.git
-.gitignore
-build
-managed_components
-sdkconfig
-main/secrets.h
-assets
-*.DS_Store

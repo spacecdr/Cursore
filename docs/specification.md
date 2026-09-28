@@ -34,7 +34,7 @@ GPIO19, GPIO22, GPIO23 e GPIO33 sono riservati all'audio interno dell'Atom Echo.
 
 ## Rete
 
-- SSID primario e fallback: configurabili localmente in `main/secrets.h`;
+- SSID primario e fallback: configurabili localmente in `firmware/main/secrets.h`;
 - backend: `192.168.123.5:8766`;
 - health: `GET /health`;
 - verifica: HTTP 200 e JSON con `status: "ok"`, `service: "cursore-server"`.

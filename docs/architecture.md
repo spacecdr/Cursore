@@ -8,6 +8,11 @@ L'Atom Echo è un terminale embedded: non esegue il modello LLM e non dipende da
 
 ## Moduli firmware
 
+Tutti i moduli seguenti sono in `firmware/main/`. Il backend è in `server/`;
+il compose root serve il backend, quello sotto `firmware/` compila il firmware.
+La pipeline attiva è Groq STT → Groq GPT-OSS → Piper persistente.
+Vedere [handoff](handoff.md) e [contratto API](api.md).
+
 - `main.c`: inizializzazione e composizione dei moduli.
 - `wifi.c`: rete primaria/fallback, riconnessione e stato connesso.
 - `button.c`: debounce e toggle globale READY/MUTED.
@@ -17,6 +22,10 @@ L'Atom Echo è un terminale embedded: non esegue il modello LLM e non dipende da
 - `speaker.c`: download WAV progressivo e riproduzione stereo I²S.
 
 ## Sequenza audio
+
+Questa è la sequenza del codice firmware attuale basata sul VAD, non il flusso
+finale conforme al requisito wake word. Il gate locale “Cursore” deve ancora
+essere aggiunto prima dell'apertura dello stream HTTP chunked.
 
 1. Il terminale è in `READY`.
 2. Il VAD locale rileva energia sopra la soglia adattiva.

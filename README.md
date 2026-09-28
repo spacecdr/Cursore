@@ -1,131 +1,108 @@
 # Cursore
 
-Firmware standalone per M5Stack Atom Echo originale: un piccolo terminale vocale locale per un assistente AI ispirato ad Automan.
-
-[Pagina del progetto](https://spacecdr.github.io/Cursore/) · [Specifiche](docs/specification.md) · [Architettura](docs/architecture.md) · [Fattibilità wake word](docs/wake-word-feasibility.md)
+Assistente vocale con M5Stack Atom Echo originale e backend DietServer, senza Home Assistant.
+Un unico repository contiene il lavoro svolto dal server e dal Mac.
 
 ![Cursore Atom Echo](assets/cursore-atom-hero.png)
 
-> Il nome **Cursore** richiama l'assistente di Automan: un'interfaccia discreta, sempre pronta, tra persona, macchina e rete locale.
+## Prima di lavorare da un altro computer
 
-## Scopo
+Leggere [collaborazione tra sessioni](docs/collaboration.md), [stato e passaggio di consegne](docs/handoff.md)
+e [AGENTS.md](AGENTS.md). Codice e documenti Git sono condivisi; chat, credenziali e file di build no.
 
-Cursore trasforma l'Atom Echo originale in un terminale vocale LAN per `cursore-server`, già disponibile sulla rete locale all'indirizzo `192.168.123.5:8766`.
+## Struttura
 
-Il firmware è progettato per lavorare senza Home Assistant, ESPHome, PlatformIO o servizi cloud obbligatori. L'Atom gestisce localmente il pulsante, il LED, l'acquisizione audio, il VAD e il controllo della sessione; il server esegue le funzioni AI più pesanti.
-
-## Stato attuale
-
-Il codice corrente contiene:
-
-- Wi-Fi con rete primaria e fallback configurabili localmente, più riconnessione;
-- stati LED `MUTED`, `READY`, `LISTENING`, `PROCESSING`, `SPEAKING`, `ERROR`;
-- toggle globale tramite pressione breve del pulsante;
-- verifica `GET /health` del backend;
-- acquisizione microfono PDM a 16 kHz;
-- VAD energetico locale adattivo con pre-roll;
-- invio progressivo di PCM signed 16-bit little-endian, mono, 16 kHz;
-- ricezione progressiva di WAV dal server e riproduzione I²S sullo speaker;
-- gestione della condivisione GPIO33 tra clock PDM e LRCK I²S.
-
-La wake word locale **“Cursore”** non è ancora inclusa. Prima della sua implementazione il firmware non deve trasmettere audio in rete.
-
-## Flusso operativo
-
-```text
-Atom Echo
-  │
-  ├─ pulsante → READY / MUTED
-  ├─ microfono PDM → VAD locale
-  ├─ LED → stato della sessione
-  │
-  └─ Wi-Fi LAN
-       │
-       ▼
-  cursore-server:8766
-       │
-       ├─ POST audio PCM progressivo
-       ├─ STT → LLM → TTS
-       └─ GET WAV progressivo
-```
-
-Il dettaglio dei moduli e dei protocolli è in [docs/architecture.md](docs/architecture.md). Le specifiche hardware sono in [docs/specification.md](docs/specification.md).
-
-## Hardware supportato
-
-Solo M5Stack Atom Echo originale, SKU C008-C:
-
-| Funzione | Pin / componente |
+| Percorso | Contenuto |
 |---|---|
-| MCU | ESP32-PICO-D4, 240 MHz |
-| Flash | 4 MB |
-| PSRAM | assente |
-| Pulsante | GPIO39 |
-| LED | SK6812, GPIO27 |
-| Microfono | SPM1423 PDM, CLK GPIO33, DATA GPIO23 |
-| Speaker | NS4168 I²S, DATA GPIO22, BCLK GPIO19, LRCK GPIO33 |
+| `server/` | Backend Python, provider e immagine Docker |
+| `docker-compose.yml` | Solo cursore-server, usato sul DietServer |
+| `firmware/` | Firmware ESP-IDF, build sul Mac e CI |
+| `firmware/docker-compose.yml` | Build Docker firmware separata |
+| `docs/` | Architettura, API, handoff e sito GitHub Pages |
+| `wakeword/` | Percorso previsto per il futuro modello; nessun modello incluso |
+| `.env.example` | Template backend senza chiavi |
+| `firmware/main/secrets.example.h` | Template Wi-Fi senza password |
 
-Non usare questo progetto con AtomS3, AtomS3R o altri modelli con pinout diverso.
+## Stato effettivo
 
-## Build locale
+Il backend dispone di health, upload PCM chunked, STT Groq Whisper in italiano,
+LLM Groq GPT-OSS e TTS Piper persistente. Restituisce un URL temporaneo al WAV.
+GeminiTTS è conservato nel codice ma non è utilizzato nel percorso attivo.
+Non è attualmente sufficiente cambiare `TTS_PROVIDER` per selezionarlo.
 
-Prerequisiti:
+Il firmware contiene Wi-Fi primaria/fallback, pulsante mute, LED, acquisizione PDM,
+VAD adattivo, upload progressivo e riproduzione WAV I²S.
 
-- ESP-IDF `v6.0.3`;
-- target `esp32`;
-- Docker opzionale.
+**La wake word locale “Cursore” non è implementata. Il firmware attuale avvia
+l'upload al rilevamento VAD: il requisito di non inviare audio prima della wake word
+non è ancora soddisfatto.** Non considerarlo pronto per l'ascolto ambientale.
+L'integrazione del repository non modifica questo comportamento.
 
-Configurazione credenziali:
+I benchmark delle chat precedenti possono riferirsi a provider e implementazioni
+diversi. Vedere l'handoff per lo stato del codice, senza dedurre nuove prestazioni
+dai vecchi numeri.
+
+## Backend sul DietServer
+
+Il servizio esistente usa `192.168.123.5:8766` e loopback. Il compose root è dedicato;
+non modificare quello in `/root/DOCKER/docker-compose.yml`.
+
+Solo su una nuova installazione e se `.env` non esiste:
 
 ```sh
-cp main/secrets.example.h main/secrets.h
-# inserire localmente SSID e password; main/secrets.h è ignorato da Git
+cp .env.example .env
+chmod 600 .env
+# Compilare localmente le chiavi. Non pubblicare il file.
 ```
 
-Build nativa:
+```sh
+docker compose config --quiet
+# Build/avvio solo quando si intende distribuire sul DietServer:
+docker compose up -d --build cursore-server
+curl --fail http://127.0.0.1:8766/health
+```
+
+Il compose corrente richiede sia GROQ_API_KEY sia GEMINI_API_KEY, anche se Gemini
+non è chiamato dal percorso attivo. Il binding LAN è specifico del DietServer:
+un clone sul Mac non implica avviare questo servizio. Vedere [server/README.md](server/README.md).
+
+## Firmware sul Mac
+
+Il vecchio progetto ESP-IDF nella root di GitHub è ora in `firmware/`.
+Attivare l'ambiente ESP-IDF v6.0.3 del proprio Mac, poi:
 
 ```sh
-source /Users/iceman/.espressif/tools/activate_idf_v6.0.3.sh
+cd firmware
+# Solo se secrets.h non esiste:
+cp main/secrets.example.h main/secrets.h
+# Configurare localmente SSID e password.
 idf.py set-target esp32
 idf.py build
 ```
 
-Build containerizzata:
+Per istruzioni Docker e migrazione del vecchio clone vedere [firmware/README.md](firmware/README.md).
+Il flash avviene soltanto sul Mac collegato via USB, su richiesta esplicita.
 
-```sh
-docker build -t cursore-firmware .
-docker run --rm -v "$PWD":/project -w /project cursore-firmware idf.py build
-```
+## Protocollo Atom v1
 
-Il container usa `main/secrets.example.h` se `main/secrets.h` non è presente. Non inserire mai credenziali nell'immagine Docker o nel repository.
+Dopo la futura wake word locale, l'Atom apre `POST /api/v1/requests` HTTP/1.1 con
+`Transfer-Encoding: chunked`, inviando PCM signed 16-bit little-endian, mono, 16000 Hz.
+Il VAD locale determina la fine e invia il chunk terminale zero.
+Il server attende il completamento dell'upload prima dello STT, risponde JSON e
+rende disponibile il WAV con `GET /api/v1/requests/<id>/audio`.
+Content-Length resta supportato per test/interoperabilità.
+Vedere [contratto API](docs/api.md).
 
-## Macchina a stati LED
+## Sicurezza e licenze
 
-| Stato | Colore |
-|---|---|
-| MUTED | rosso fisso |
-| READY | verde fisso |
-| LISTENING | giallo fisso |
-| PROCESSING | blu fisso |
-| SPEAKING | viola fisso |
-| ERROR | rosso temporaneo, poi stato precedente |
+Credenziali backend, Wi-Fi e autenticazione GitHub restano sui singoli computer.
+Non pubblicare registrazioni, build contenenti password o file di autenticazione.
+I workflow CI usano soltanto segnaposto e non flashano dispositivi.
 
-## Installazione e licenze
+La licenza MIT del firmware è conservata in [firmware/LICENSE](firmware/LICENSE).
+Non viene estesa automaticamente al backend o alle sue dipendenze.
+Piper OHF-Voice usa GPL-3.0-or-later; ogni voce ha condizioni proprie.
+Prima di redistribuire immagini e modelli verificarne separatamente le licenze.
 
-Il firmware applicativo è pubblicato come progetto open source con licenza MIT. ESP-IDF e i componenti Espressif mantengono le rispettive licenze upstream. Il nome Cursore e il riferimento narrativo ad Automan descrivono l'identità del progetto e non implicano affiliazione ufficiale.
-
-## Sicurezza
-
-- nessuna password è versionata;
-- `main/secrets.h` è escluso da Git;
-- nessun audio deve precedere la futura wake word locale;
-- il firmware comunica solo con il backend LAN configurato;
-- non sono incluse procedure di flash automatico.
-
-## Riferimenti
-
-- [M5Stack Atom Echo](https://docs.m5stack.com/en/atom/atomecho)
-- [ESP-IDF v6.0.3](https://github.com/espressif/esp-idf/releases/tag/v6.0.3)
-- [Fattibilità wake word locale](docs/wake-word-feasibility.md)
-- [Architettura](docs/architecture.md)
-- [Specifiche](docs/specification.md)
+[Architettura](docs/architecture.md) · [Hardware](docs/specification.md) ·
+[Wake word](docs/wake-word-feasibility.md) · [Pagina progetto](https://spacecdr.github.io/Cursore/)

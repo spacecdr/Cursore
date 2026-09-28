@@ -13,8 +13,14 @@ L’Atom Echo originale ha ESP32-PICO-D4, 4 MB flash e nessuna PSRAM. Il microfo
 - **CPU:** 240 MHz è sufficiente per inferenza streaming leggera, ma il costo reale dipende da architettura, frontend e kernel; va misurato sul target ESP32 originale, non trasferito da benchmark ESP32-S3.
 - **Rischi:** falsi positivi/negativi in ambiente rumoroso, memoria Wi-Fi concorrente, latenza del frontend PDM, frammentazione heap e possibile necessità di ridurre il modello o rinunciare a OTA dual-slot.
 
-## Decisione per MAC-1
+## Stato dopo l'integrazione del repository
 
-Nessun microfono, modello, TFLite Micro, wake word o audio viene incluso ora. La pipeline futura dovrà mantenere l’audio locale fino alla rilevazione di “Cursore” e poi inviare PCM progressivamente, senza accumulare l’intera frase.
+Il firmware in `firmware/` include microfono, VAD, upload e playback. Non include
+un modello “Cursore” o il gate wake word: attualmente il VAD può aprire l'upload.
+Il requisito finale rimane mantenere l'audio locale fino alla rilevazione di
+“Cursore”, poi inviare PCM progressivamente senza accumulare l'intera frase.
+Le stime RAM/CPU sopra sono ipotesi progettuali, non benchmark sul dispositivo.
+Coordinare il lavoro tra sessioni tramite [collaboration.md](collaboration.md)
+e [handoff.md](handoff.md).
 
 Fonti tecniche: [M5Stack Atom Echo](https://docs.m5stack.com/en/atom/atomecho), [ESP-IDF release v6.0.3](https://github.com/espressif/esp-idf/releases/tag/v6.0.3), [Espressif TFLite Micro](https://github.com/espressif/esp-tflite-micro), [microWakeWord](https://github.com/kahrendt/microWakeWord), [ESP-SR WakeNet](https://docs.espressif.com/projects/esp-sr/en/latest/esp32/wake_word_engine/index.html).
