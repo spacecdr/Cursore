@@ -13,11 +13,16 @@ jobs:
     defaults:
       run:
         working-directory: firmware
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - name: Prepare public credentials placeholder
         run: cp main/secrets.example.h main/secrets.h
       - name: Select original ESP32 target
-        run: idf.py set-target esp32
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32
       - name: Build firmware
-        run: idf.py build
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py build

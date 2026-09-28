@@ -45,6 +45,9 @@ Questa attività integra percorsi, template, documentazione e CI. Non costituisc
 un nuovo test vocale end-to-end e non certifica comportamento sul dispositivo.
 La build firmware in CI usa credenziali fittizie; il test hardware resta al Mac.
 Il servizio già in esecuzione non viene ricreato per questa riorganizzazione.
+La prima CI ha rilevato `idf.py: not found`: GitHub Actions non attivava
+l'ambiente dell'immagine ESP-IDF. Il workflow ora usa Bash e carica export.sh
+prima di set-target/build; la compilazione viene verificata nuovamente in CI.
 
 ## Prossimi lavori da coordinare
 
