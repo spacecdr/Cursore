@@ -12,7 +12,9 @@ Non è ancora implementata la wake word: il VAD attualmente avvia direttamente l
 
 Attivare l'installazione ESP-IDF v6.0.3 del proprio computer. Da questa cartella,
 solo se main/secrets.h non esiste, copiarlo da main/secrets.example.h e inserire
-localmente le credenziali Wi-Fi. Il backend è definito in main/config.h.
+localmente le credenziali Wi-Fi e CURSORE_SERVER_HOST / CURSORE_SERVER_PORT.
+main/config.h usa questi valori locali; mantiene i default storici del DietServer
+solo per compatibilità con i vecchi secrets.h privi dei due campi.
 
 ```sh
 idf.py set-target esp32

@@ -7,7 +7,9 @@ Aggiornato: 29 settembre 2026 — integrazione repository.
 - Backend locale di partenza: 06485f0, `Use Groq GPT-OSS and persistent Piper TTS`.
 - Firmware/GitHub di partenza: 4b65d9c, `Fix project page hero image path`.
 - Le cronologie erano indipendenti. Il branch integration/unified-cursore le riunisce.
-- Da questa integrazione tutti lavorano su spacecdr/Cursore. Leggere collaboration.md.
+- Integrazione completata su main con PR #1, merge 46dc27c; build ESP32 e controlli
+  server passati. Da questa integrazione tutti lavorano su spacecdr/Cursore.
+  Leggere collaboration.md e quickstart.md.
 
 ## Cosa cambia per la sessione Mac
 
@@ -47,7 +49,17 @@ La build firmware in CI usa credenziali fittizie; il test hardware resta al Mac.
 Il servizio già in esecuzione non viene ricreato per questa riorganizzazione.
 La prima CI ha rilevato `idf.py: not found`: GitHub Actions non attivava
 l'ambiente dell'immagine ESP-IDF. Il workflow ora usa Bash e carica export.sh
-prima di set-target/build; la compilazione viene verificata nuovamente in CI.
+prima di set-target/build. La compilazione è riuscita nelle run 36497589491 e
+36497595141; i controlli server nelle run 36497589542 e 36497595134.
+
+## Configurazione portabile
+
+- Compose root: IP/porta da CURSORE_LAN_IP / CURSORE_PORT locali; Gemini ora opzionale.
+- Il `.env` del DietServer ha CURSORE_LAN_IP=192.168.123.5; nessuna API key cambiata.
+- Il nuovo template firmware consente host/porta in secrets.h. I vecchi secrets.h
+  senza questi campi mantengono i default del DietServer per compatibilità.
+- Per repliche esterne seguire quickstart.md; il firmware resta specifico per Atom
+  Echo originale e la build non dimostra funzionamento su tutte le architetture Docker.
 
 ## Prossimi lavori da coordinare
 

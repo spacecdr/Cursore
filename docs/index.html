@@ -22,15 +22,15 @@
 <section class="hero wrap">
   <div>
     <p class="eyebrow"><span class="live"></span> ATOM ECHO · ESP-IDF · LAN LOCALE</p>
-    <h1>Ascolta solo<br><em>quando lo chiami.</em></h1>
+    <h1>Un Atom.<br><em>Il tuo assistente.</em></h1>
     <p class="lead">Cursore riunisce firmware Atom Echo e backend DietServer. La wake word locale è l’obiettivo ancora da implementare; oggi il firmware avvia l’audio con il VAD. Il server usa servizi cloud per STT/LLM e Piper locale per la voce.</p>
-    <div class="actions"><a class="button primary" href="https://github.com/spacecdr/Cursore">Esplora il codice <span>↗</span></a><a class="button secondary" href="#flusso">Come funziona ↓</a></div>
+    <div class="actions"><a class="button primary" href="https://github.com/spacecdr/Cursore">Esplora il codice <span>↗</span></a><a class="button secondary" href="https://github.com/spacecdr/Cursore/blob/main/docs/quickstart.md">Installa sulla tua rete ↗</a></div>
     <p class="micro">M5Stack Atom Echo · ESP32-PICO-D4 · 4 MB · no PSRAM · standalone</p>
   </div>
   <div class="hero-visual">
     <div class="grid" aria-hidden="true"></div><div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div>
     <div class="atom-card"><img src="cursore-atom-hero.png" alt="Visualizzazione concettuale di Cursore con Atom Echo e rete locale"><span class="led-dot"></span></div>
-    <div class="float-tag tag-one"><span>01</span> LOCAL WAKE WORD</div><div class="float-tag tag-two"><span>02</span> PROGRESSIVE AUDIO</div>
+    <div class="float-tag tag-one"><span>01</span> WAKE WORD · IN SVILUPPO</div><div class="float-tag tag-two"><span>02</span> PROGRESSIVE AUDIO</div>
     <p class="visual-caption">Visualizzazione concettuale · hardware originale M5Stack</p>
   </div>
 </section>
@@ -51,7 +51,7 @@
 
 <section class="wrap section future"><div><p class="eyebrow">IL PROSSIMO PASSO</p><h2>“Cursore”<br>resta a bordo.</h2><p>La wake word futura sarà un modello locale INT8, studiato per RAM, flash e CPU dell’ESP32 originale. microWakeWord e TensorFlow Lite Micro sono candidati tecnici; nessun servizio esterno è parte del requisito.</p><a href="https://github.com/spacecdr/Cursore/blob/main/docs/wake-word-feasibility.md">Leggi la valutazione tecnica ↗</a></div><div class="future-card"><span class="pulse">⌁</span><p>PRIVACY BY DESIGN</p><strong>Niente audio<br>prima della parola.</strong><small>Requisito obiettivo: il gate wake word è ancora da implementare.</small></div></section>
 
-<section class="wrap section start"><div><p class="eyebrow">STANDALONE, RIPRODUCIBILE</p><h2>Il progetto<br>è aperto.</h2><p>Firmware ESP-IDF in firmware/, backend in server/, documentazione e CI nello stesso repository. Le sessioni Mac e DietServer coordinano il lavoro tramite handoff e guida condivisa.</p></div><div class="actions"><a class="button primary" href="https://github.com/spacecdr/Cursore">Apri GitHub ↗</a><a class="button secondary" href="https://github.com/spacecdr/Cursore/blob/main/README.md">README tecnico ↗</a></div></section>
+<section class="wrap section start"><div><p class="eyebrow">STANDALONE, RIPRODUCIBILE</p><h2>Il progetto<br>è aperto.</h2><p>Firmware ESP-IDF in firmware/, backend Docker in server/, documentazione e CI nello stesso repository. Configura la tua rete dai template locali e segui la guida rapida. Le sessioni Mac e DietServer condividono stato e decisioni esclusivamente su GitHub.</p><p><a href="https://github.com/spacecdr/Cursore/blob/main/docs/quickstart.md">Guida installazione ↗</a> · <a href="https://github.com/spacecdr/Cursore/blob/main/docs/collaboration.md">Collaborare da più computer ↗</a> · <a href="https://github.com/spacecdr/Cursore/blob/main/docs/handoff.md">Stato e prossimi passi ↗</a></p></div><div class="actions"><a class="button primary" href="https://github.com/spacecdr/Cursore">Apri GitHub ↗</a><a class="button secondary" href="https://github.com/spacecdr/Cursore/blob/main/README.md">README tecnico ↗</a></div></section>
 </main>
 <footer class="wrap footer"><a class="brand" href="#"><span class="mark">⌁</span> Cursore</a><p>Un progetto standalone per M5Stack Atom Echo · <a href="https://github.com/spacecdr">spacecdr</a></p><a href="https://github.com/spacecdr/Cursore/blob/main/firmware/LICENSE">Licenza MIT firmware</a></footer>
 </body>
